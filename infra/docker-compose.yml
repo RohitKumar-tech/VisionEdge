@@ -1,0 +1,49 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: visionedge
+      POSTGRES_USER: visionedge
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # Bound to localhost only — never exposed to internet
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+
+  backend:
+    build: ../backend
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      DATABASE_URL: postgresql://visionedge:${POSTGRES_PASSWORD}@postgres:5432/visionedge
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET}
+      ENCRYPTION_KEY_BACKEND: ${ENCRYPTION_KEY_BACKEND}
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  celery:
+    build: ../backend
+    restart: unless-stopped
+    command: celery -A workers worker --loglevel=info
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      DATABASE_URL: postgresql://visionedge:${POSTGRES_PASSWORD}@postgres:5432/visionedge
+      REDIS_URL: redis://redis:6379/0
+
+volumes:
+  postgres_data:
