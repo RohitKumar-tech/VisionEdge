@@ -29,3 +29,9 @@ node_modules/
 
 # Logs
 *.log
+
+# Training data, checkpoints, and run artifacts (large / generated files)
+edge-agent/training/data/
+edge-agent/training/checkpoints/
+edge-agent/training/logs/
+edge-agent/training/snapshot_*.jpg

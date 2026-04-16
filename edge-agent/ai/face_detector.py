@@ -83,6 +83,29 @@ class FaceDetector:
         enhanced_lab = cv2.merge([l_enhanced, a, b])
         return cv2.cvtColor(enhanced_lab, cv2.COLOR_LAB2BGR)
 
+    # Minimum Laplacian variance to consider a face crop "live".
+    # Real faces at typical CCTV distance: ~80-400.
+    # Printed photos / phone screens: ~10-60.
+    # Tune this lower (40) for distant/compressed cameras.
+    LIVENESS_THRESHOLD = 50.0
+
+    @staticmethod
+    def liveness_score(face_crop_bgr: np.ndarray) -> float:
+        """
+        Estimate whether a face is real or a flat photo/screen.
+
+        Uses Laplacian variance on the face crop — a measure of high-frequency
+        texture. Real skin has natural micro-texture; printed photos and phone
+        screens are smoother (lower variance).
+
+        Returns a float ≥ 0. Higher = more likely live.
+        Compare against LIVENESS_THRESHOLD.
+        """
+        if face_crop_bgr is None or face_crop_bgr.size == 0:
+            return 0.0
+        gray = cv2.cvtColor(face_crop_bgr, cv2.COLOR_BGR2GRAY)
+        return float(cv2.Laplacian(gray, cv2.CV_64F).var())
+
     def detect(self, frame: np.ndarray, enhance: bool = False) -> list:
         """
         Detect all faces in frame above det_thresh.
@@ -93,9 +116,10 @@ class FaceDetector:
                      Helps with foggy, dark, or washed-out frames.
 
         Returns list of dicts:
-            bbox      — np.ndarray [x1, y1, x2, y2] float32
-            embedding — np.ndarray (512,) float32, copy — safe to modify
-            det_score — float, detection confidence
+            bbox          — np.ndarray [x1, y1, x2, y2] float32
+            embedding     — np.ndarray (512,) float32, copy — safe to modify
+            det_score     — float, detection confidence
+            liveness      — float, Laplacian variance of face crop (anti-spoof score)
 
         Face embedding values are never logged.
         Raises RuntimeError if load() has not been called.
@@ -106,12 +130,16 @@ class FaceDetector:
         input_frame = self._enhance_frame(frame) if enhance else frame
         raw_faces = self._app.get(input_frame)
 
-        return [
-            {
-                "bbox": face.bbox.copy(),
+        results = []
+        for face in raw_faces:
+            if face.det_score < DET_SCORE_THRESHOLD:
+                continue
+            x1, y1, x2, y2 = [int(v) for v in face.bbox]
+            crop = input_frame[max(y1, 0):max(y2, 0), max(x1, 0):max(x2, 0)]
+            results.append({
+                "bbox":      face.bbox.copy(),
                 "embedding": face.embedding.copy(),
                 "det_score": float(face.det_score),
-            }
-            for face in raw_faces
-            if face.det_score >= DET_SCORE_THRESHOLD
-        ]
+                "liveness":  self.liveness_score(crop),
+            })
+        return results

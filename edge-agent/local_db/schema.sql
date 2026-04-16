@@ -38,3 +38,13 @@ CREATE TABLE IF NOT EXISTS sync_state (
     key         TEXT PRIMARY KEY,  -- e.g. 'last_sync_at', 'sync_cursor'
     value       TEXT NOT NULL
 );
+
+-- Attendance dedup: one row per (person, date) — prevents re-uploading checkin
+-- after first recognition of the day even across restarts.
+CREATE TABLE IF NOT EXISTS attendance_log (
+    person_id      TEXT NOT NULL,
+    date           TEXT NOT NULL,    -- YYYY-MM-DD (UTC)
+    first_camera   TEXT NOT NULL,    -- which camera first saw them today
+    checked_in_at  TEXT NOT NULL,    -- ISO timestamp of first sighting
+    PRIMARY KEY (person_id, date)
+);
