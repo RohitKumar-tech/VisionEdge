@@ -39,12 +39,13 @@ CREATE TABLE IF NOT EXISTS sync_state (
     value       TEXT NOT NULL
 );
 
--- Attendance dedup: one row per (person, date) — prevents re-uploading checkin
--- after first recognition of the day even across restarts.
+-- Attendance dedup: one row per (person, date).
+-- checked_out_at is NULL until they leave; updated on every exit (tracks latest).
 CREATE TABLE IF NOT EXISTS attendance_log (
     person_id      TEXT NOT NULL,
     date           TEXT NOT NULL,    -- YYYY-MM-DD (UTC)
     first_camera   TEXT NOT NULL,    -- which camera first saw them today
     checked_in_at  TEXT NOT NULL,    -- ISO timestamp of first sighting
+    checked_out_at TEXT,             -- ISO timestamp of last exit today (nullable)
     PRIMARY KEY (person_id, date)
 );

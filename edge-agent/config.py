@@ -10,7 +10,9 @@ class AgentConfig:
     site_id: str
     agent_token: str
     cloud_base_url: str
-    cameras: list  # list of {camera_id, rtsp_url, onvif_ip}
+    # Each camera dict: {camera_id, rtsp_url, role}
+    # role: "entry" → checkin only | "exit" → checkout only | "both" → checkin only (default)
+    cameras: list
     recognition_fps: int = 1
     confidence_threshold: float = 0.95
     hls_port: int = 8080
